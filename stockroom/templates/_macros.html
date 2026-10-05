@@ -1,0 +1,73 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{# A form that POSTs to `action`, optionally asking for confirmation first. #}
+{% macro post_button(action, label, class="btn btn-sm btn-secondary-soft", confirm=None, icon=None, form_class="d-inline") %}
+<form method="post" action="{{ action }}" class="{{ form_class }}"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
+  {{ csrf() }}
+  <button type="submit" class="{{ class }}">{% if icon %}<i class="bi bi-{{ icon }}"></i>{% endif %}{{ label }}</button>
+</form>
+{% endmacro %}
+
+{% macro enum_select(name, enum_cls, selected=None, blank=None) %}
+<select class="form-select" id="{{ name }}" name="{{ name }}">
+  {% if blank %}<option value="">{{ blank }}</option>{% endif %}
+  {% for member in enum_cls %}
+  <option value="{{ member.name }}" {{ 'selected' if member == selected or member.name == selected }}>{{ member.value }}</option>
+  {% endfor %}
+</select>
+{% endmacro %}
+
+{% set status_colors = {
+  "PENDING": "warning", "APPROVED": "primary", "ORDERED": "secondary",
+  "SHIPPED": "info", "DELIVERED": "success", "CANCELED": "danger",
+} %}
+{% macro status_badge(status) %}
+{% set c = status_colors[status.name] %}
+<span class="status bg-{{ c }}-subtle text-{{ c }}-emphasis border-{{ c }}-subtle">{{ status.value }}</span>
+{% endmacro %}
+
+{% macro avatar(name, class="") %}
+<span class="avatar {{ class }}" style="--hue: {{ name | avatar_hue }}" title="{{ name }}" aria-hidden="true">{{ name | initials }}</span>
+{% endmacro %}
+
+{% macro stat(label, value, icon, color="primary", href=None) %}
+<div class="panel stat h-100">
+  <div class="stat-label">
+    <span class="stat-icon bg-{{ color }}-subtle text-{{ color }}-emphasis"><i class="bi bi-{{ icon }}"></i></span>
+    {{ label }}
+  </div>
+  <div class="stat-value">{% if href %}<a class="link-body-emphasis" href="{{ href }}">{{ value }}</a>{% else %}{{ value }}{% endif %}</div>
+</div>
+{% endmacro %}
+
+{% macro empty_state(icon, title, text) %}
+<div class="empty">
+  <div class="empty-icon"><i class="bi bi-{{ icon }}"></i></div>
+  <h3>{{ title }}</h3>
+  <p>{{ text }}</p>
+  {{ caller() if caller }}
+</div>
+{% endmacro %}
+
+{% macro modal(id, title, subtitle=None, action=None, submit=None, submit_class="btn-primary", size="") %}
+<div class="modal fade" id="{{ id }}" tabindex="-1" aria-labelledby="{{ id }}-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered {{ size }}">
+    {% if action %}<form class="modal-content" method="post" action="{{ action }}">{{ csrf() }}{% else %}<div class="modal-content">{% endif %}
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title" id="{{ id }}-title">{{ title }}</h2>
+          {% if subtitle %}<p>{{ subtitle }}</p>{% endif %}
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">{{ caller() }}</div>
+      {% if submit %}
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary-soft" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn {{ submit_class }}" type="submit">{{ submit }}</button>
+      </div>
+      {% endif %}
+    {% if action %}</form>{% else %}</div>{% endif %}
+  </div>
+</div>
+{% endmacro %}

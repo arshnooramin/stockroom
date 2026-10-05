@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Sign in{% endblock %}
+{% block main %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="text-center mb-4">
+      <span class="app-logo mb-3"><i class="bi bi-box-seam"></i></span>
+      <h1 class="h4 mb-1">Sign in to {{ config.APP_NAME }}</h1>
+      <p class="text-body-secondary mb-0">Request parts and track every order in one place.</p>
+    </div>
+
+    <div class="panel panel-body p-4">
+      {% if sso_enabled %}
+      <a class="btn btn-primary w-100 py-2" href="{{ url_for('auth.login_sso') }}">
+        <i class="bi bi-{{ 'google' if config.OIDC_PROVIDER_NAME == 'Google' else 'microsoft' if config.OIDC_PROVIDER_NAME == 'Microsoft' else 'shield-lock' }}"></i>
+        Continue with {{ config.OIDC_PROVIDER_NAME }}
+      </a>
+      {% elif not dev_login %}
+      <div class="d-flex gap-2 small text-warning-emphasis bg-warning-subtle border border-warning-subtle rounded p-3">
+        <i class="bi bi-exclamation-triangle"></i>
+        <div>Sign-in isn't configured yet. Set <code>OIDC_CLIENT_ID</code> and <code>OIDC_CLIENT_SECRET</code>.</div>
+      </div>
+      {% endif %}
+
+      {% if dev_login %}
+      {% if sso_enabled %}<div class="divider">or</div>{% endif %}
+      <form method="post" action="{{ url_for('auth.login_dev') }}">
+        {{ csrf() }}
+        <label for="email" class="form-label d-flex align-items-center gap-2">
+          Email
+          <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium">Development only</span>
+        </label>
+        <input class="form-control mb-3" type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com">
+        <button class="btn btn-secondary-soft w-100" type="submit">Sign in without a password</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <p class="text-center small text-body-secondary mt-4 mb-0">
+      Don't have access? Ask an administrator to add your email address.
+    </p>
+  </div>
+</div>
+{% endblock %}

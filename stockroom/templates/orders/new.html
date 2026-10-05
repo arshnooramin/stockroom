@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}New order{% endblock %}
+
+{% macro item_row(item={}) %}
+<div class="panel item-row mb-3">
+  <div class="panel-body">
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <span class="item-number">1</span>
+      <span class="fw-semibold me-auto item-title">Item</span>
+      <span class="small text-body-secondary">Line total <span class="fw-semibold text-body tabular item-total">$0.00</span></span>
+      <button type="button" class="btn btn-sm btn-ghost btn-icon text-danger item-remove" aria-label="Remove item" title="Remove item"><i class="bi bi-trash"></i></button>
+    </div>
+    <div class="row g-3">
+      <label class="col-md-8">
+        <span class="form-label d-block">Description</span>
+        <input class="form-control" name="item_description" value="{{ item.description }}" required maxlength="500" placeholder="e.g. 10kΩ resistor, 0603">
+      </label>
+      <label class="col-md-4">
+        <span class="form-label d-block">Part number</span>
+        <input class="form-control font-monospace" name="item_part_number" value="{{ item.part_number }}" required maxlength="255">
+      </label>
+      <label class="col-6 col-md-4">
+        <span class="form-label d-block">Unit price</span>
+        <span class="input-group">
+          <span class="input-group-text">$</span>
+          <input class="form-control item-price tabular" type="number" name="item_unit_price" value="{{ item.unit_price }}" min="0" step="0.01" required placeholder="0.00">
+        </span>
+      </label>
+      <label class="col-6 col-md-3">
+        <span class="form-label d-block">Quantity</span>
+        <input class="form-control item-qty tabular" type="number" name="item_quantity" value="{{ item.quantity or 1 }}" min="1" step="1" required>
+      </label>
+      <label class="col-12">
+        <span class="form-label d-block">Justification</span>
+        <textarea class="form-control" name="item_justification" rows="2" required placeholder="What is it for, and why this part?">{{ item.justification }}</textarea>
+      </label>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="mx-auto" style="max-width: 64rem;">
+  <div class="page-header">
+    <div>
+      <nav aria-label="breadcrumb"><ol class="breadcrumb">
+        {% if current_user.is_admin %}<li class="breadcrumb-item"><a href="{{ url_for('admin.index') }}">Dashboard</a></li>{% endif %}
+        <li class="breadcrumb-item"><a href="{{ url_for('projects.show', project_id=project.id) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">New order</li>
+      </ol></nav>
+      <h1>New order</h1>
+      <p class="lead-text">An admin reviews every order before it's placed. You'll get an email when its status changes.</p>
+    </div>
+  </div>
+
+  <form method="post" id="order-form">
+    {{ m.csrf() }}
+    <section class="form-section">
+      <div>
+        <h2>Vendor</h2>
+        <p>Where the parts will be bought. Pick "Other" for a vendor that isn't listed.</p>
+      </div>
+      <div class="panel panel-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label for="vendor" class="form-label">Vendor</label>
+            <select class="form-select" id="vendor" name="vendor" data-other="{{ other_vendor }}">
+              {% for name in vendors %}<option {{ 'selected' if form.vendor == name }}>{{ name }}</option>{% endfor %}
+              <option {{ 'selected' if form.vendor == other_vendor }}>{{ other_vendor }}</option>
+            </select>
+          </div>
+          <fieldset id="vendor-other" class="col-12" hidden disabled>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="vendor_other_name" class="form-label">Vendor name</label>
+                <input class="form-control" id="vendor_other_name" name="vendor_other_name" value="{{ form.vendor_other_name }}" required maxlength="255">
+              </div>
+              <div class="col-md-6">
+                <label for="vendor_other_url" class="form-label">Website</label>
+                <input class="form-control" id="vendor_other_url" name="vendor_other_url" value="{{ form.vendor_other_url }}" placeholder="example.com" required maxlength="2048">
+              </div>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div>
+        <h2>Timing</h2>
+        <p>Orders are normally batched at the end of the week. Choose "Immediate" only if work is blocked.</p>
+      </div>
+      <div class="panel panel-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="urgency" class="form-label">When to order</label>
+            {{ m.enum_select("urgency", Urgency, form.urgency) }}
+          </div>
+          <div class="col-md-6">
+            <label for="shipping_speed" class="form-label">Shipping speed</label>
+            {{ m.enum_select("shipping_speed", ShippingSpeed, form.shipping_speed) }}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section border-0">
+      <div>
+        <h2>Items</h2>
+        <p>Add each part on its own line. The justification helps admins approve quickly.</p>
+      </div>
+      <div>
+        <div id="items">
+          {% for item in items %}{{ item_row(item) }}{% endfor %}
+        </div>
+        <template id="item-template">{{ item_row() }}</template>
+        <button type="button" class="btn btn-secondary-soft w-100 border-dashed" id="add-item"><i class="bi bi-plus-lg"></i>Add another item</button>
+      </div>
+    </section>
+
+    <div class="sticky-actions">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <div class="me-auto">
+          <div class="small text-body-secondary">Subtotal</div>
+          <div class="fs-5 fw-semibold tabular lh-sm" id="order-subtotal">$0.00</div>
+        </div>
+        <a class="btn btn-secondary-soft" href="{{ url_for('projects.show', project_id=project.id) }}">Cancel</a>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-send"></i>Submit for review</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

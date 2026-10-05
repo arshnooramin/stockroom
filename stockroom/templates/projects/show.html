@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    {% if current_user.is_admin %}
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('admin.index') }}">Dashboard</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ project.name }}</li>
+    </ol></nav>
+    {% endif %}
+    <h1>{{ project.name }}</h1>
+    <div class="d-flex align-items-center gap-2 mt-2 small text-body-secondary">
+      {% if project.members %}
+      <span class="avatar-stack d-inline-flex">{% for pm in project.members %}{{ m.avatar(pm.name, "avatar-sm") }}{% endfor %}</span>
+      <span>{{ project.members | map(attribute="name") | join(", ") }}</span>
+      {% else %}
+      <span>No project manager assigned</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="actions">
+    <a class="btn btn-primary" href="{{ url_for('orders.new', project_id=project.id) }}"><i class="bi bi-plus-lg"></i>New order</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">{{ m.stat("Total spend", project.total | money, "currency-dollar", "success") }}</div>
+  <div class="col-6 col-lg-3">{{ m.stat("Awaiting review", project.count(Status.PENDING), "hourglass-split", "warning") }}</div>
+  <div class="col-6 col-lg-3">{{ m.stat("In progress", project.count(*IN_PROGRESS), "truck", "info") }}</div>
+  <div class="col-6 col-lg-3">{{ m.stat("Delivered", project.count(Status.DELIVERED), "check2-circle", "primary") }}</div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <h2>Orders</h2>
+    <span class="text-body-secondary small">{{ project.orders | length }} total</span>
+  </div>
+
+  {% for order in project.orders %}
+  <div class="order">
+    <div class="order-summary">
+      <button class="order-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#order-{{ order.id }}" aria-expanded="false" aria-controls="order-{{ order.id }}">
+        <i class="bi bi-chevron-right chevron"></i>
+        <span class="min-w-0">
+          <span class="order-title">{{ order.vendor }}</span>
+          <span class="text-body-secondary small ms-1">#{{ order.id }}</span>
+          <span class="order-meta d-block text-truncate">
+            {{ order.created_at | date }}{% if order.created_by %} · {{ order.created_by.name }}{% endif %}
+            · {{ order.items | length }} item{{ 's' if order.items | length != 1 }}
+          </span>
+        </span>
+      </button>
+      <div class="order-status">{{ m.status_badge(order.status) }}</div>
+      <div class="order-total">
+        {{ order.total | money }}
+        {% if order.shipping_cost %}<small>incl. {{ order.shipping_cost | money }} shipping</small>{% endif %}
+      </div>
+    </div>
+
+    <div class="collapse" id="order-{{ order.id }}">
+      <div class="order-details">
+        <div class="order-details-inner">
+          <dl class="detail-list">
+            <div><dt>When to order</dt><dd>{{ order.urgency.value }}</dd></div>
+            <div><dt>Shipping speed</dt><dd>{{ order.shipping_speed.value }}</dd></div>
+            <div><dt>Courier</dt><dd>{{ order.courier.value if order.courier else "—" }}</dd></div>
+            <div><dt>Vendor</dt><dd>{% if order.vendor_url %}<a href="{{ order.vendor_url }}" target="_blank" rel="noopener noreferrer">{{ order.vendor_url | replace("https://", "") | replace("www.", "") }} <i class="bi bi-box-arrow-up-right small"></i></a>{% else %}—{% endif %}</dd></div>
+          </dl>
+
+          <div class="panel overflow-hidden mb-3">
+            <div class="table-responsive">
+              <table class="table app-table app-table-sm align-middle">
+                <thead><tr><th>Item</th><th class="d-none d-md-table-cell">Part #</th><th class="text-end d-none d-sm-table-cell">Unit price</th><th class="text-end d-none d-sm-table-cell">Qty</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                  {% for item in order.items %}
+                  <tr>
+                    <td>
+                      <div class="fw-medium">{{ item.description }}</div>
+                      <div class="small text-body-secondary">{{ item.justification }}</div>
+                      <div class="small text-body-secondary d-md-none mt-1"><span class="font-monospace">{{ item.part_number }}</span><span class="d-sm-none"> · {{ item.quantity }} × {{ item.unit_price | money }}</span></div>
+                    </td>
+                    <td class="font-monospace small d-none d-md-table-cell">{{ item.part_number }}</td>
+                    <td class="text-end tabular d-none d-sm-table-cell">{{ item.unit_price | money }}</td>
+                    <td class="text-end tabular d-none d-sm-table-cell">{{ item.quantity }}</td>
+                    <td class="text-end tabular fw-medium">{{ item.total | money }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <dl class="mb-0 px-3 py-2 small border-top ms-auto vstack gap-1" style="max-width: 16rem;">
+              <div class="d-flex"><dt class="fw-normal text-body-secondary me-auto">Subtotal</dt><dd class="mb-0 tabular">{{ order.subtotal | money }}</dd></div>
+              <div class="d-flex"><dt class="fw-normal text-body-secondary me-auto">Shipping</dt><dd class="mb-0 tabular">{{ order.shipping_cost | money }}</dd></div>
+              <div class="d-flex fw-semibold"><dt class="me-auto">Total</dt><dd class="mb-0 tabular">{{ order.total | money }}</dd></div>
+            </dl>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2">
+            {% if order.tracking_url %}
+            <a class="btn btn-sm btn-secondary-soft" href="{{ order.tracking_url }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-truck"></i>Track package</a>
+            {% endif %}
+            {% if current_user.is_admin %}
+            <a class="btn btn-sm btn-secondary-soft" href="{{ url_for('orders.edit', order_id=order.id) }}"><i class="bi bi-pencil"></i>Update order</a>
+            {% endif %}
+            {% if order.can_delete(current_user) %}
+            {{ m.post_button(url_for('orders.delete', order_id=order.id), "Delete", class="btn btn-sm btn-ghost text-danger", confirm="Delete order #" ~ order.id ~ " from " ~ order.vendor ~ "?", icon="trash") }}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  {% call m.empty_state("cart", "No orders yet", "Orders placed for this project will show up here with their status and tracking.") %}
+  <a class="btn btn-primary" href="{{ url_for('orders.new', project_id=project.id) }}"><i class="bi bi-plus-lg"></i>Place the first order</a>
+  {% endcall %}
+  {% endfor %}
+</div>
+{% endblock %}

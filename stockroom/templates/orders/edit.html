@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Update order #{{ order.id }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('admin.index') }}">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('projects.show', project_id=order.project_id) }}">{{ order.project.name }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Order #{{ order.id }}</li>
+    </ol></nav>
+    <h1 class="d-flex align-items-center gap-3">{{ order.vendor }} <span class="text-body-secondary fw-normal">#{{ order.id }}</span> {{ m.status_badge(order.status) }}</h1>
+    <p class="lead-text">Placed {{ order.created_at | date }}{% if order.created_by %} by {{ order.created_by.name }}{% endif %}</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <form method="post" class="panel">
+      {{ m.csrf() }}
+      <div class="panel-header"><h2>Update order</h2></div>
+      <div class="panel-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="status" class="form-label">Status</label>
+            {{ m.enum_select("status", Status, order.status) }}
+            <div class="form-text"><i class="bi bi-envelope"></i> Project managers are emailed when this changes.</div>
+          </div>
+          <div class="col-md-6">
+            <label for="shipping_cost" class="form-label">Shipping cost</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input class="form-control tabular" type="number" id="shipping_cost" name="shipping_cost" value="{{ order.shipping_cost }}" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label for="courier" class="form-label">Courier</label>
+            {{ m.enum_select("courier", Courier, order.courier, blank="Not shipped yet") }}
+          </div>
+          <div class="col-md-6">
+            <label for="tracking_url" class="form-label">Tracking link</label>
+            <input class="form-control" id="tracking_url" name="tracking_url" value="{{ order.tracking_url or '' }}" maxlength="2048" placeholder="https://">
+          </div>
+          <div class="col-md-6">
+            <label for="urgency" class="form-label">When to order</label>
+            {{ m.enum_select("urgency", Urgency, order.urgency) }}
+          </div>
+          <div class="col-md-6">
+            <label for="shipping_speed" class="form-label">Shipping speed</label>
+            {{ m.enum_select("shipping_speed", ShippingSpeed, order.shipping_speed) }}
+          </div>
+        </div>
+      </div>
+      <div class="panel-footer d-flex justify-content-end gap-2">
+        <a class="btn btn-secondary-soft" href="{{ url_for('projects.show', project_id=order.project_id) }}">Cancel</a>
+        <button class="btn btn-primary" type="submit">Save changes</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Summary</h2>
+        {% if order.vendor_url %}<a class="ms-auto small" href="{{ order.vendor_url }}" target="_blank" rel="noopener noreferrer">Vendor site <i class="bi bi-box-arrow-up-right"></i></a>{% endif %}
+      </div>
+      <ul class="list-unstyled mb-0">
+        {% for item in order.items %}
+        <li class="d-flex gap-3 px-4 py-3 border-bottom">
+          <div class="me-auto min-w-0">
+            <div class="fw-medium">{{ item.description }}</div>
+            <div class="small text-body-secondary"><span class="font-monospace">{{ item.part_number }}</span> · {{ item.quantity }} × {{ item.unit_price | money }}</div>
+            <div class="small text-body-secondary fst-italic mt-1">{{ item.justification }}</div>
+          </div>
+          <div class="tabular fw-medium text-nowrap">{{ item.total | money }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+      <dl class="px-4 py-3 mb-0 small vstack gap-1">
+        <div class="d-flex"><dt class="fw-normal text-body-secondary me-auto">Subtotal</dt><dd class="mb-0 tabular">{{ order.subtotal | money }}</dd></div>
+        <div class="d-flex"><dt class="fw-normal text-body-secondary me-auto">Shipping</dt><dd class="mb-0 tabular">{{ order.shipping_cost | money }}</dd></div>
+        <div class="d-flex fs-6 fw-semibold border-top pt-2 mt-1"><dt class="me-auto">Total</dt><dd class="mb-0 tabular">{{ order.total | money }}</dd></div>
+      </dl>
+    </div>
+  </div>
+</div>
+{% endblock %}

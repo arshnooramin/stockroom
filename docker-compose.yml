@@ -1,0 +1,25 @@
+# Local development only: seeded demo data and password-free dev sign-in.
+# Production uses the Dockerfile's default command, which starts with an empty database.
+#
+#   docker compose up --build    then open http://localhost:8000
+#   docker compose down -v       to wipe the demo database
+name: stockroom
+
+services:
+  web:
+    build: .
+    command: sh -c "flask init-db && flask seed-demo && flask run --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    environment:
+      FLASK_DEBUG: "1"
+      DEV_LOGIN: "true"
+      SECRET_KEY: local-development-only
+      # Taken from your .env if set; you sign in as this superuser.
+      SUPERUSER_EMAIL: ${SUPERUSER_EMAIL:-superuser@example.com}
+    volumes:
+      - ./stockroom:/app/stockroom  # live reload on code changes
+      - stockroom-data:/app/instance
+
+volumes:
+  stockroom-data:
