@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+venv
+instance
+tests
+.env
+**/__pycache__
+.pytest_cache
+.ruff_cache
+CLAUDE.local.md
+docker-compose.yml

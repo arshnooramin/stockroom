@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ error.name }}{% endblock %}
+{% block content %}
+<div class="empty py-5 my-md-5">
+  <div class="empty-icon"><i class="bi bi-{{ 'lock' if error.code == 403 else 'signpost-split' if error.code == 404 else 'exclamation-triangle' }}"></i></div>
+  <p class="small fw-semibold text-primary mb-1">Error {{ error.code }}</p>
+  <h1 class="h3">{{ "You don't have access to this page" if error.code == 403 else "Page not found" if error.code == 404 else error.name }}</h1>
+  <p>
+    {% if error.code == 403 %}Your account doesn't have permission to view this. If you think that's wrong, ask an administrator.
+    {% elif error.code == 404 %}The page may have been moved or deleted.
+    {% else %}{{ error.description }}{% endif %}
+  </p>
+  <a class="btn btn-primary" href="{{ url_for('index') }}"><i class="bi bi-arrow-left"></i>Back to home</a>
+</div>
+{% endblock %}

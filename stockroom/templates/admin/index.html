@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="lead-text">Every project's spending and order activity.</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-secondary-soft" data-bs-toggle="modal" data-bs-target="#export-modal" {{ 'disabled' if not projects }}><i class="bi bi-download"></i><span class="d-none d-sm-inline">Export</span></button>
+    <button class="btn btn-secondary-soft" data-bs-toggle="modal" data-bs-target="#new-pm-modal" {{ 'disabled' if not projects }}><i class="bi bi-person-plus"></i><span class="d-none d-sm-inline">Add PM</span></button>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#new-project-modal"><i class="bi bi-plus-lg"></i>New project</button>
+    {% if current_user.is_superuser %}
+    <div class="dropdown">
+      <button class="btn btn-secondary-soft btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More actions"><i class="bi bi-three-dots"></i></button>
+      <div class="dropdown-menu dropdown-menu-end">
+        <h6 class="dropdown-header">Superuser</h6>
+        <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#admins-modal"><i class="bi bi-shield-lock"></i>Manage admins</button>
+        <button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#reset-modal"><i class="bi bi-arrow-counterclockwise"></i>Reset for new term</button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">{{ m.stat("Total spend", stats.spend | money, "currency-dollar", "success") }}</div>
+  <div class="col-6 col-lg-3">{{ m.stat("Awaiting review", stats.pending, "hourglass-split", "warning") }}</div>
+  <div class="col-6 col-lg-3">{{ m.stat("In progress", stats.in_progress, "truck", "info") }}</div>
+  <div class="col-6 col-lg-3">{{ m.stat("Projects", projects | length, "folder2", "primary") }}</div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <h2>Projects</h2>
+    <span class="text-body-secondary small">{{ projects | length }} project{{ 's' if projects | length != 1 }} · {{ stats.managers }} project manager{{ 's' if stats.managers != 1 }}</span>
+  </div>
+  {% if projects %}
+  <div class="table-responsive">
+    <table class="table app-table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Project</th>
+          <th class="d-none d-sm-table-cell">Project managers</th>
+          <th class="text-end d-none d-md-table-cell">Orders</th>
+          <th class="text-end">Pending</th>
+          <th class="text-end">Spend</th>
+          <th class="text-end"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for project in projects %}
+        {% set pending = project.count(Status.PENDING) %}
+        <tr>
+          <td>
+            <a class="app-row-link" href="{{ url_for('projects.show', project_id=project.id) }}">{{ project.name }}</a>
+            <div class="small text-body-secondary">Created {{ project.created_at | date }}</div>
+          </td>
+          <td class="d-none d-sm-table-cell">
+            {% if project.members %}
+            <div class="d-flex align-items-center gap-2">
+              <span class="avatar-stack d-inline-flex">{% for pm in project.members %}{{ m.avatar(pm.name, "avatar-sm") }}{% endfor %}</span>
+              <span class="small text-truncate d-none d-lg-inline" style="max-width: 14rem;">{{ project.members | map(attribute="name") | join(", ") }}</span>
+            </div>
+            {% else %}
+            <button class="btn btn-sm btn-ghost px-0" data-bs-toggle="modal" data-bs-target="#new-pm-modal" data-project="{{ project.id }}"><i class="bi bi-plus-circle"></i>Assign PM</button>
+            {% endif %}
+          </td>
+          <td class="text-end tabular d-none d-md-table-cell">{{ project.orders | length }}</td>
+          <td class="text-end">
+            {% if pending %}<span class="count-pill bg-warning-subtle text-warning-emphasis">{{ pending }}</span>{% else %}<span class="text-body-secondary">—</span>{% endif %}
+          </td>
+          <td class="text-end tabular fw-medium">{{ project.total | money }}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-secondary-soft d-none d-md-inline-flex" href="{{ url_for('projects.show', project_id=project.id) }}">Open</a>
+            <div class="dropdown d-inline-block">
+              <button class="btn btn-sm btn-ghost btn-icon" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Project actions"><i class="bi bi-three-dots-vertical"></i></button>
+              <div class="dropdown-menu dropdown-menu-end">
+                <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#new-pm-modal" data-project="{{ project.id }}"><i class="bi bi-person-plus"></i>Add project manager</button>
+                {% for pm in project.members %}
+                {{ m.post_button(url_for('admin.delete_user', user_id=pm.id), "Remove " ~ pm.name, class="dropdown-item", confirm="Remove " ~ pm.name ~ " from " ~ project.name ~ "? They will lose access.", icon="person-dash", form_class="") }}
+                {% endfor %}
+                <hr class="dropdown-divider">
+                {{ m.post_button(url_for('admin.delete_project', project_id=project.id), "Delete project", class="dropdown-item text-danger", confirm="Delete " ~ project.name ~ ", all of its orders and its project managers? This can't be undone.", icon="trash", form_class="") }}
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {% call m.empty_state("folder-plus", "No projects yet", "Create a project, then add its project manager so they can start submitting orders.") %}
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#new-project-modal"><i class="bi bi-plus-lg"></i>New project</button>
+  {% endcall %}
+  {% endif %}
+</div>
+
+{# ---- Modals ---- #}
+{% call m.modal("new-project-modal", "New project", "Projects group orders and the people who place them.", url_for('admin.create_project'), "Create project") %}
+<label for="project-name" class="form-label">Project name</label>
+<input class="form-control" id="project-name" name="name" required maxlength="255" placeholder="e.g. Solar Car">
+{% endcall %}
+
+{% call m.modal("new-pm-modal", "Add project manager", "They'll sign in with this email and can place orders for the project.", url_for('admin.add_member'), "Add project manager") %}
+<div class="vstack gap-3">
+  <div><label for="pm-name" class="form-label">Full name</label><input class="form-control" id="pm-name" name="name" required maxlength="255"></div>
+  <div><label for="pm-email" class="form-label">Email</label><input class="form-control" type="email" id="pm-email" name="email" required maxlength="255" placeholder="name@example.com"></div>
+  <div><label for="pm-project" class="form-label">Project</label>
+    <select class="form-select" id="pm-project" name="project_id">
+      {% for project in projects %}<option value="{{ project.id }}">{{ project.name }}</option>{% endfor %}
+    </select></div>
+</div>
+{% endcall %}
+
+{% call m.modal("export-modal", "Export to Excel", "One sheet per project, one row per item.", url_for('admin.export'), "Download .xlsx", "btn-primary") %}
+<div class="form-check mb-2">
+  <input class="form-check-input" type="checkbox" id="export-all" name="all" value="1" checked data-toggles="#export-projects">
+  <label class="form-check-label fw-medium" for="export-all">All projects</label>
+</div>
+<fieldset id="export-projects" class="ms-4 vstack gap-1" disabled>
+  {% for project in projects %}
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" id="export-{{ project.id }}" name="project_id" value="{{ project.id }}">
+    <label class="form-check-label" for="export-{{ project.id }}">{{ project.name }}</label>
+  </div>
+  {% endfor %}
+</fieldset>
+{% endcall %}
+
+{% if current_user.is_superuser %}
+{% call m.modal("admins-modal", "Admins", "Admins can manage projects and every order.") %}
+<ul class="list-unstyled vstack gap-2 mb-4">
+  {% for admin in admins %}
+  <li class="d-flex align-items-center gap-2">
+    {{ m.avatar(admin.name) }}
+    <div class="me-auto lh-sm text-truncate">
+      <div class="fw-medium">{{ admin.name }}{% if admin.is_superuser %} <span class="badge rounded-pill bg-primary-subtle text-primary-emphasis fw-medium ms-1">Superuser</span>{% endif %}</div>
+      <div class="small text-body-secondary text-truncate">{{ admin.email }}</div>
+    </div>
+    {% if not admin.is_superuser and admin.id != current_user.id %}
+    {{ m.post_button(url_for('admin.delete_user', user_id=admin.id), "", class="btn btn-sm btn-ghost btn-icon text-danger", confirm="Revoke admin access for " ~ admin.name ~ "?", icon="trash") }}
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+<form method="post" action="{{ url_for('admin.add_admin') }}" class="border-top pt-3">
+  {{ m.csrf() }}
+  <div class="fw-semibold mb-2">Add an admin</div>
+  <div class="row g-2">
+    <div class="col-sm-5"><input class="form-control" name="name" placeholder="Full name" aria-label="Full name" required maxlength="255"></div>
+    <div class="col-sm-7"><input class="form-control" type="email" name="email" placeholder="Email" aria-label="Email" required maxlength="255"></div>
+  </div>
+  <button class="btn btn-primary mt-2" type="submit"><i class="bi bi-plus-lg"></i>Add admin</button>
+</form>
+{% endcall %}
+
+{% call m.modal("reset-modal", "Reset for a new term", None, url_for('admin.reset'), "Delete everything", "btn-danger") %}
+<div class="d-flex gap-2 small text-danger-emphasis bg-danger-subtle border border-danger-subtle rounded p-3 mb-3">
+  <i class="bi bi-exclamation-octagon"></i>
+  <div>This permanently deletes <strong>every project, order and project manager</strong>. Admins are kept. Export first if you need a record.</div>
+</div>
+<label for="reset-confirm" class="form-label">Type <code>RESET</code> to confirm</label>
+<input class="form-control" id="reset-confirm" name="confirm" required pattern="RESET" autocomplete="off">
+{% endcall %}
+{% endif %}
+{% endblock %}
